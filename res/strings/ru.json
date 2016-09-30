@@ -1,6 +1,7 @@
 {
-  "copyToClipboard": "Скопируйте в буфер обмена: Ctrl+C, Enter",
   "acTorqueHelper": "Калькулятор крутящего момента для AC",
+
+  "copyToClipboard": "Скопируйте в буфер обмена: Ctrl+C, Enter",
   "dontForgetTransmissionLoss": "Не забудьте о потери на шасси",
   "turboSectionsOnlyNeeded": "Нужны лишь секции с турбо",
   "delete": "Удалить",
@@ -36,6 +37,15 @@
   "detalization": "Детализация",
   "sameY": "Синхронизировать максимальные значения по осям Y",
   "engineIniRpmLimit": "Учитывать ограничитель оборотов из engine.ini",
+
+  "clearSavedData": "Сбросить данные",
+  "about": "О калькуляторе",
+  "version": "Версия",
+  "aboutHtml": "Строит кривые двигателя из <i>engine.ini</i> и <i>power.lut</i> для <a target=\"_blank\" href=\"http://www.assettocorsa.net/en/\">Assetto Corsa</a>. Написан с <a target=\"_blank\" href=\"http://mithril.js.org\">mithril.js</a>, использует библиотеки <a target=\"_blank\" href=\"http://www.highcharts.com\">Highcharts</a>, <a target=\"_blank\" href=\"https://ace.c9.io\">Ace</a> и <a target=\"_blank\" href=\"http://velocityjs.org\">Velocity.js</a>.",
+
+  "areYouSure": "Вы уверены?",
+  "yes": "Да",
+  "no": "Нет",
 
   "torque": "Крутящий момент",
   "power": "Мощность",

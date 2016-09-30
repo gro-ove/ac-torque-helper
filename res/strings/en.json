@@ -1,6 +1,7 @@
 {
-  "copyToClipboard": "Copy to clipboard: Ctrl+C, Enter",
   "acTorqueHelper": "AC Torque Helper",
+
+  "copyToClipboard": "Copy to clipboard: Ctrl+C, Enter",
   "dontForgetTransmissionLoss": "Don’t forget about transmission loss",
   "turboSectionsOnlyNeeded": "Turbo sections only needed",
   "delete": "Delete",
@@ -36,6 +37,15 @@
   "detalization": "Detalization",
   "sameY": "Sync ranges of Y axes",
   "engineIniRpmLimit": "Consider RPM limiter from engine.ini",
+
+  "clearSavedData": "Clear saved data",
+  "about": "About",
+  "version": "Version",
+  "aboutHtml": "Builds engine curves from <i>engine.ini</i> and <i>power.lut</i> for <a target=\"_blank\" href=\"http://www.assettocorsa.net/en/\">Assetto Corsa</a>. Written with <a target=\"_blank\" href=\"http://mithril.js.org\">mithril.js</a>, uses libraries <a target=\"_blank\" href=\"http://www.highcharts.com\">Highcharts</a>, <a target=\"_blank\" href=\"https://ace.c9.io\">Ace</a> and <a target=\"_blank\" href=\"http://velocityjs.org\">Velocity.js</a>.",
+
+  "areYouSure": "Are you sure?",
+  "yes": "Yes",
+  "no": "No",
 
   "torque": "Torque",
   "power": "Power",

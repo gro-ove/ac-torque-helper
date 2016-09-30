@@ -76,18 +76,21 @@ var fadesIn = function(element, isInitialized, context) {
   }
 };
 
-var fadesOut = function(callback) {
+var fadesOut = function(toast) {
   return function(element, isInitialized, context) {
     if (!isInitialized){
-      callback();
+      toast.delete();
       return;
     }
+
+    if (toast.fading) return;
+    toast.fading = true;
 
     m.redraw.strategy('none');
     v(element, { opacity: 0, translateY: '10px' }, {
       complete: function() {
         m.startComputation();
-        callback();
+        toast.delete();
         m.endComputation();
       },
       duration: 150
@@ -96,20 +99,13 @@ var fadesOut = function(callback) {
 };
 
 Toast.component = {
-  controller: () => {
-    return {
-      model: toastModel
-    }
-  },
   view: ctrl => {
-    return <div class="toast_wrapper">
-      {
-        ctrl.model.toasts.map(toast => <div class="toast" key={toast.id} config={toast.deleted ? fadesOut(toast.delete.bind(toast)) : fadesIn}>
-          <span>{locales.current[toast.message]}</span>
-          { toast.undoCallback ? <button onclick={toast.undo.bind(toast)}>{locales.current.undo}</button> : null }
-        </div>)
-      }
-    </div>;
+    return <div class="toast_wrapper">{
+      toastModel.toasts.map(toast => <div class="toast" key={toast.id} config={toast.deleted ? fadesOut(toast) : fadesIn}>
+        <span>{locales.current[toast.message]}</span>
+        { toast.undoCallback ? <button onclick={toast.undo.bind(toast)}>{locales.current.undo}</button> : null }
+      </div>)
+    }</div>;
   }
 }
 

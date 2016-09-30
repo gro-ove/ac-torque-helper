@@ -37,28 +37,38 @@
 
   background: #444;
   border-radius: @border-radius;
-  height: @height;
+  max-height: @height;
   padding-left: @padding;
   padding-right: 0;
   max-width: @width;
   margin: 0 auto;
   margin-top: -@height / 2;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: 0 3px 16px rgba(0,0,0,0.5);
+}
+
+.dialog ~ .dialog {
+  max-width: @width - 10px;
+}
+
+.dialog_wrapper ~ .dialog_wrapper .dialog {
+  max-width: @width - 10px;
 }
 
 @media (max-width: (@width+@padding)) {
-  .dialog { border-radius: 0; }
+  .dialog { border-radius: 0 }
+  .dialog_wrapper ~ .dialog_wrapper .dialog { max-width: @width }
 }
 
-@media (max-height: 600px) {
+@media (max-height: 500px) {
   .dialog {
     top: 0;
-    height: auto;
+    height: auto !important;
     bottom: 0;
     left: 0;
     right: 0;
-    margin: 0;
-    max-width: 99999px;
+    margin: 0 !important;
+    max-width: 99999px !important;
+    max-height: 99999px !important;
     box-shadow: none;
   }
 }
@@ -66,6 +76,9 @@
 .dialog_title {
   height: 41px;
   line-height: 41px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dialog_close_button {
@@ -101,6 +114,10 @@
 
   h6 {
     margin-left: -20px;
+  }
+
+  .main_section_buttons {
+    margin-bottom: 20px; 
   }
 }
 

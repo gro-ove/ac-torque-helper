@@ -71,23 +71,30 @@ class Dialog {
 
 var fadesIn = function(element, isInitialized, context) {
   if (!isInitialized) {
+    element.style.height = `${Math.min(element.querySelector('.dialog_content').scrollHeight + 48, 420)}px`;
+    element.style.marginTop = `-${element.offsetHeight / 2}px`;
     element.style.opacity = 0;
-    v(element, { opacity: 1 }, 150)
+    v(element, { opacity: 1 }, 150);
+    setTimeout(() => element.parentNode.classList.add('active'), 10);
   }
 };
 
-var fadesOut = function(callback) {
+var fadesOut = function(dialog) {
   return function(element, isInitialized, context) {
     if (!isInitialized){
-      callback();
+      dialog.delete();
       return;
     }
 
+    if (dialog.fading) return;
+    dialog.fading = true;
+
     m.redraw.strategy('none');
+    element.parentNode.classList.remove('active');
     v(element, { opacity: 0, translateY: '10px' }, {
       complete: function() {
         m.startComputation();
-        callback();
+        dialog.delete();
         m.endComputation();
       },
       duration: 150
@@ -102,17 +109,26 @@ Dialog.component = {
     }
   },
   view: ctrl => {
-    return <div 
+    return <div>{ ctrl.model.dialogs.map(dialog => <div class='dialog_wrapper' onclick={function(e){ e.target == this && ctrl.model.closeLast() }}>
+      <div class="dialog" key={dialog.id} config={dialog.deleted ? fadesOut(dialog) : fadesIn}>
+        <div class="dialog_title">
+          <button class="dialog_close_button" onclick={dialog.hide.bind(dialog)}>×</button>
+          {locales.current[dialog.title]}
+        </div>
+        { dialog.component }
+      </div>
+    </div>) }</div>;
+    /*return <div 
       class={ctrl.model.dialogs.length ? 'dialog_wrapper active' : 'dialog_wrapper'} 
       onclick={function(e){ e.target == this && ctrl.model.closeLast() }}>{
-      ctrl.model.dialogs.map(dialog => <div class="dialog" key={dialog.id} config={dialog.deleted ? fadesOut(dialog.delete.bind(dialog)) : fadesIn}>
+      ctrl.model.dialogs.map(dialog => <div class="dialog" key={dialog.id} config={dialog.deleted ? fadesOut(dialog) : fadesIn}>
         <div class="dialog_title">
           <button class="dialog_close_button" onclick={dialog.hide.bind(dialog)}>×</button>
           {locales.current[dialog.title]}
         </div>
         { dialog.component }
       </div>)
-    }</div>;
+    }</div>;*/
   }
 }
 

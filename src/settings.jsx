@@ -33,6 +33,41 @@ var buttonComponent = {
   }
 };
 
+function clearSavedData(){
+  function yes(){
+    localStorage.clear();
+    location.reload();
+    d.hide();
+  }
+
+  function no(){
+    d.hide();
+  }
+
+  var d = new Dialog('clearSavedData', {
+    view: () => <div class="dialog_content">
+      <p>{locales.current.areYouSure}</p>
+      <div class="main_section_buttons">
+        <button onclick={yes}>{locales.current.yes}</button>
+        <button class="secondary" onclick={no}>{locales.current.no}</button>
+      </div>
+    </div>
+  });
+
+  d.show();
+}
+
+function aboutDialog(){
+  var packageInformation = require('../package');
+  new Dialog('acTorqueHelper', {
+    view: () => <div class="dialog_content">
+      <p style="font-size:13px">{m.trust(`${locales.current.version}: <b>${packageInformation.version}</b>.`)}</p>
+      <p style="font-size:13px">{m.trust(locales.current.aboutHtml)}</p>
+      <p style="font-size:13px"><a target="_blank" href={packageInformation.homepage}>GitHub ({packageInformation.licenses[0].type})</a>.</p>
+    </div>
+  }).show();
+}
+
 var settingsComponent = {
   view: ctrl => {
     return <div class="dialog_content">
@@ -53,6 +88,11 @@ var settingsComponent = {
       { createInput.checkbox(locales.current.sameY, settings.sameY) }
       { createInput.checkbox(locales.current.curvesByPowerLutPoints, settings.pointsMode) }
       { createInput.prop(locales.current.detalization, settings.steps, 10, 200, 10, null, settings.pointsMode()) }
+
+      <div class="main_section_buttons">
+        <button onclick={clearSavedData}>{locales.current.clearSavedData}</button>
+        <button class="secondary" onclick={aboutDialog}>{locales.current.about}</button>
+      </div>
     </div>;
   }
 };
