@@ -243,8 +243,13 @@ function renderChart(destination, torque, power /*= null*/){
     }
   }
 
+  function updateRequired(){
+    return localLang != langChanged;
+  }
+
   return {
-    update: update
+    update: update,
+    updateRequired: updateRequired
   };
 }
 

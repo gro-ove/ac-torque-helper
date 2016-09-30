@@ -536,7 +536,7 @@ var torqueHelper = {
     function plotter(){
       if (interpolateDebug) return interpolateDebug;
       return (element, isInitialized) => {
-        if (isInitialized && changeId == model.changeId) return;
+        if (isInitialized && changeId == model.changeId && !chart.updateRequired()) return;
 
         var values = getTorqueValues(settings.pointsMode(), settings.steps(), model.powerLutParsed(), 
             model.engineIniParsed(), model.ctrlTurboInis);
