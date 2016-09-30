@@ -1,0 +1,34 @@
+.locales_list li, .settings_toggle {
+  a { color: inherit; }
+
+  display: inline-block;
+  text-transform: uppercase;
+  margin: 8px;
+  position: relative;
+  top: -2px;
+  font-size: 13px;
+
+  color: rgba(255,255,255,0.4);
+  &:hover { color: rgba(255,255,255,0.5); }
+  &:active { color: rgba(255,255,255,0.6); }
+  &.active { color: #fff; }
+}
+
+.locales_list {
+  float: right;
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+@media (max-width: 640px) {
+  .header .title { display: none }
+}
+
+@media (max-width: 360px) {
+  .locales_list { display: none }
+  .header_inline {
+    .locales_list li, .settings_toggle { margin: 4px }
+  }
+}

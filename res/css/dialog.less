@@ -1,0 +1,106 @@
+@height: 420px;
+@width: 480px;
+@padding: 20px;
+@border-radius: 3px;
+
+.dialog_wrapper {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  padding: 80px;
+  pointer-events: none;
+  transition: background 0.2s;
+  background: transparent;
+
+  &.active {
+    pointer-events: all;
+    background: rgba(0,0,0,.4);
+  }
+}
+
+@media (max-width: 800px) {
+  .dialog_wrapper { padding: 40px; }
+}
+
+@media (max-width: 600px) {
+  .dialog_wrapper { padding: 0; }
+}
+
+.dialog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+
+  background: #444;
+  border-radius: @border-radius;
+  height: @height;
+  padding-left: @padding;
+  padding-right: 0;
+  max-width: @width;
+  margin: 0 auto;
+  margin-top: -@height / 2;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+@media (max-width: (@width+@padding)) {
+  .dialog { border-radius: 0; }
+}
+
+@media (max-height: 600px) {
+  .dialog {
+    top: 0;
+    height: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    max-width: 99999px;
+    box-shadow: none;
+  }
+}
+
+.dialog_title {
+  height: 41px;
+  line-height: 41px;
+}
+
+.dialog_close_button {
+  float: right;
+  margin: 0;
+  background: transparent;
+  font-weight: 100;
+  font-size: 25px;
+  font-family: Segoue UI Light, Segoe UI, sans-serif;
+  padding: 0x;
+  width: 61px;
+  height: 41px;
+  border-radius: 0 @border-radius 0 0;
+  padding-bottom: 5px;
+}
+
+.dialog_content {
+  position: absolute;
+  top: 41px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-left: 40px;
+  padding-right: 20px;
+  overflow-y: auto;
+
+  label {
+    display: block;
+    margin-bottom: 20px;
+    font-size: 11px;
+    width: 100%;
+  }
+
+  h6 {
+    margin-left: -20px;
+  }
+}
+

@@ -1,0 +1,8 @@
++ settings
+  - color scheme
+  + font size
+  + layout
+- styled export-as-image
++ notify about two controllers with same id
++ open-file-dialog
++ sync maxes of Y axes

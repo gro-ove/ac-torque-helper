@@ -1,0 +1,99 @@
+@thumb-width: 8px;
+@thumb-height: 16px;
+
+@slider-background: rgba(0,0,0,.15);
+@slider-hover-background: rgba(0,0,0,.2);
+@slider-active-background: rgba(0,0,0,.4);
+
+.slider-thumb(){
+  -webkit-appearance: none;
+  border: none;
+  height: @thumb-height;
+  width: @thumb-width;
+  border-radius: 0;
+  background: #A20025;
+  opacity: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.slider-thumb-hover(){
+  background: #990024;
+}
+
+.slider-track(){
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  background: @slider-background;
+  border-radius: 0;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+  height: @thumb-height;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+  }
+
+  &:focus, &:active {
+    outline: none;
+    box-shadow: none;
+
+    &::-webkit-slider-thumb { outline: 1px solid rgba(255,255,255,0.4); }
+    &::-moz-slider-thumb { outline: 1px solid rgba(255,255,255,0.4); }
+    &::-ms-slider-thumb { outline: 1px solid rgba(255,255,255,0.4); }
+  }
+
+  /* thumb */
+  &::-webkit-slider-thumb {
+    .slider-thumb();
+    margin-top: -(@thumb-height - 2) / 2;
+  }
+
+  &::-moz-range-thumb { .slider-thumb(); }
+  &::-ms-thumb { .slider-thumb(); }
+
+  &:hover, &:active {
+    &::-webkit-slider-thumb { .slider-thumb-hover(); }
+    &::-moz-slider-thumb { .slider-thumb-hover(); }
+    &::-ms-slider-thumb { .slider-thumb-hover(); }
+  }
+    
+  /* track */
+  &::-webkit-slider-runnable-track { .slider-track(); }
+  &::-moz-range-track { .slider-track(); }
+
+  &::-ms-track {
+    .slider-track();
+    width: 100%;
+    cursor: pointer;
+    background: transparent; 
+    border-color: transparent;
+    color: transparent;
+  }
+
+  &::-ms-fill-lower { background: @slider-background }
+  &::-ms-fill-upper { background: @slider-background; }
+
+  &:hover {
+    &::-webkit-slider-runnable-track { background: @slider-hover-background; }
+    &::-moz-range-track { background: @slider-hover-background; }
+    &::-ms-fill-lower { background: @slider-hover-background; }
+    &::-ms-fill-upper { background: @slider-hover-background; }
+  }
+
+  &:active, &:focus {
+    &::-webkit-slider-runnable-track { background: @slider-active-background; }
+    &::-moz-range-track { background: @slider-active-background; }
+    &::-ms-fill-lower { background: @slider-active-background; }
+    &::-ms-fill-upper { background: @slider-active-background; }
+  }
+
+  // &:active {
+  //   box-shadow: 0 0 0 1px rgba(255,255,255,0.4);
+  // }
+}

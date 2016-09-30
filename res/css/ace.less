@@ -1,0 +1,38 @@
+.ace_editor {
+  width: 100%;
+  background: rgba(0,0,0,.15) !important;
+
+  &:hover {
+    background-color: rgba(0,0,0,.2) !important;
+  }
+
+  &:focus, &:active, &.ace_focus {
+    outline: none;
+    background-color: rgba(0,0,0,.4) !important;
+    // box-shadow: 0 0 0 1px rgba(255,255,255,0.4);
+  }
+}
+  
+.ace_gutter {
+  background-color: rgba(0,0,0,.2) !important;
+}
+
+.ace_scroller {
+  background-color: transparent !important;
+}
+
+.stack_section {
+  .ace_editor {
+    height: 180px;
+  }
+}
+
+.tabs_section {
+  .ace_editor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+}

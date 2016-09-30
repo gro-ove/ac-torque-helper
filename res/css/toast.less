@@ -1,0 +1,64 @@
+@height: 41px;
+@border-radius: 3px;
+
+.toast_wrapper {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  z-index: 90;
+  width: 480px;
+  margin: 0;
+  margin-left: -200px;
+}
+
+@media (max-width: 800px) {
+  .toast_wrapper {
+    bottom: 40px;
+
+    width: auto;
+    left: 0;
+    right: 0;
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .toast_wrapper {
+    bottom: 40px;
+
+    width: auto;
+    left: 0;
+    right: 0;
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+}
+
+.toast {
+  background: #444;
+  border-radius: @border-radius;
+  height: @height;
+  padding-left: 20px;
+  clear: both;
+  margin: 0 auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  margin-top: 20px;
+  position: relative;
+
+  button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    border-radius: 0 @border-radius @border-radius 0;
+    background: #444;
+    box-shadow: -7px 0px 0px -6px #fff;
+  }
+
+  span {
+    line-height: @height;
+  }
+}
+
