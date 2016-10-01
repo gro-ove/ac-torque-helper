@@ -102,6 +102,8 @@ var AcMath = require('src/acMath');
 var Toast = require('src/toast');
 var Dialog = require('src/dialog');
 
+var resultingTorqueCurve = require('src/resultingTorqueCurve');
+var hashParams = require('src/hashParams');
 var createInput = require('src/main_createInput');
 var swipes = require('src/main_swipes');
 
@@ -382,7 +384,7 @@ class TorqueHelperModel {
       return;
     }
 
-    var power = getTorqueValues(settings.pointsMode(), settings.steps(), this.powerLutParsed(), this.engineIniParsed(), this.ctrlTurboInis);
+    var power = resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), this.powerLutParsed(), this.engineIniParsed(), this.ctrlTurboInis);
     var value = JSON.stringify({
       torqueCurve: power.map(x => [ x[0], +(x[1] * transmissionLoss).toFixed(1) ]),
       powerCurve: power.map(x => [ x[0], +AcMath.torqueToPower(x[1] * transmissionLoss, x[0]).toFixed(1) ])
@@ -436,7 +438,7 @@ class TorqueHelperModel {
   }
 
   toImage(){
-    var values = getTorqueValues(settings.pointsMode(), 400, this.powerLutParsed(), 
+    var values = resultingTorqueCurve.get(settings.pointsMode(), 400, this.powerLutParsed(), 
         this.engineIniParsed(), this.ctrlTurboInis);
     charts.export(values, null, 1024, 768, () => {
       new Toast('imageExported').show();
@@ -492,41 +494,6 @@ class TurboControllerModel {
 var interpolateDebug = null;
 // interpolateDebug = require('src/acUtils_interpolateDebug');
 
-function getTorqueValues(pointsMode, steps, powerLutParsed, engineIniParsed, ctrlTurboInis){
-  var ctrlTurboInisParsed = ctrlTurboInis.reduce((a, b) => (a[b.index()] = b.dataParsed(), a), {});
-  var power;
-
-  var limit = settings.engineIniRpmLimit() && engineIniParsed['ENGINE_DATA'] ? +engineIniParsed['ENGINE_DATA']['LIMITER'] : Number.NaN;
-  if (!limit || Number.isNaN(limit)){
-    limit = +((powerLutParsed[powerLutParsed.length - 1] || {})[0] || 0);
-  }
-
-  if (pointsMode){
-    power = powerLutParsed.filter(x => x[0] <= limit);
-  } else {
-    power = [];
-
-    var prev = 0, prevJ = 0;
-    for (var i = 0; i <= steps; i ++){
-      var rpm = limit * i / steps
-      for (var j = prevJ; j < powerLutParsed.length; j++){
-        var p = powerLutParsed[j];
-        if (p[0] > rpm){
-          prevJ = j - 1;
-          break;
-        } else if (p[0] > prev && p[0] < rpm){
-          power.push(p);
-        }
-      }
-
-      power.push([ rpm, AcUtils.interpolateLinear(powerLutParsed, rpm) ]);
-      prev = rpm;
-    }
-  }
-
-  return AcTurbo.considerTurbos(power, engineIniParsed, ctrlTurboInisParsed);
-}
-
 var torqueHelper = {
   controller: () => {
     var model = TorqueHelperModel.load() || TorqueHelperModel.createDefault();
@@ -538,7 +505,7 @@ var torqueHelper = {
       return (element, isInitialized) => {
         if (isInitialized && changeId == model.changeId && !chart.updateRequired()) return;
 
-        var values = getTorqueValues(settings.pointsMode(), settings.steps(), model.powerLutParsed(), 
+        var values = resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), model.powerLutParsed(), 
             model.engineIniParsed(), model.ctrlTurboInis);
 
         if (isInitialized){
@@ -554,10 +521,11 @@ var torqueHelper = {
     function highlighter(property, mode /* = 'ace/mode/ini'*/){
       return (element, isInitialized) => {
         element.style.fontSize = settings.fontSize() + 'px';
+        element.classList[settings.isThemeDark() ? 'add' : 'remove']('editor_dark');
         if (!isInitialized){
           var editor = ace.edit(element);
           editor.$blockScrolling = Infinity;
-          editor.setTheme(/theme=(\w+)/.test(location.hash) ? `ace/theme/${RegExp.$1}` : 'ace/theme/mono_industrial');
+          editor.setTheme(settings.editorTheme());
           editor.getSession().setMode(mode || 'ace/mode/ini');
           editor.getSession().setUseWrapMode(true);
           editor.setValue(property(), 1);
@@ -566,7 +534,11 @@ var torqueHelper = {
           var value = property();
           var editor = element.env.editor;
           if (value != editor.getValue()){
-            element.env.editor.setValue(value, 1);
+            editor.setValue(value, 1);
+          }
+
+          if (editor.getTheme() != settings.editorTheme()){
+            editor.setTheme(settings.editorTheme());
           }
         }
       };
@@ -782,6 +754,15 @@ var torqueHelper = {
     </div>;
   },
 
+  viewDev: () => {
+    return hashParams.dev ? <div>
+      { createInput.checkbox('dev:engineIniRpmLimit', settings.engineIniRpmLimit) }
+      { createInput.checkbox('dev:sameY', settings.sameY) }
+      { createInput.checkbox('dev:pointsMode', settings.pointsMode) }
+      { createInput.checkbox('dev:optimize', settings.optimize) }
+    </div> : null;
+  },
+
   view: ctrl => {
     return [
       m.pageTitle(locales.current.acTorqueHelper),
@@ -815,6 +796,7 @@ var torqueHelper = {
             <div
               style="height:400px"
               config={ctrl.plotter()} />
+            {torqueHelper.viewDev()}
 
             <div class="file_section additional_padding">
               <h6>ui_car.json:</h6>
@@ -829,7 +811,6 @@ var torqueHelper = {
 
         </div>
       </div>,
-      // settings.settingsComponent,
       <div class="drag">{locales.current.dropHere}</div>,
       Dialog.component,
       Toast.component,
@@ -837,5 +818,7 @@ var torqueHelper = {
   }
 };
 
-m.mount(document.body, torqueHelper);
-swipes.init();
+settings.whenEditorThemeIsReady(() => {
+  m.mount(document.body, torqueHelper);
+  swipes.init();
+});

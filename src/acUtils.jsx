@@ -80,5 +80,5 @@ module.exports = {
   parseLutValue: parseLutValue,
   parseIni: parseIni,
   interpolateLinear: interpolateLinear,
-  interpolateCubic: interpolateCubic,
+  interpolateCubic: interpolateCubic
 };

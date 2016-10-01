@@ -34,14 +34,28 @@ class AcTurbo {
     return Math.min(this.wastegate, boost);
   }
 
-  static considerTurbos(powerLutParsed, engineIniParsed, ctrlTurboInisParsed){
+  static getTurbosList(engineIniParsed, ctrlTurboInisParsed){
     var turbos = [];
     for (var i = 0, section; section = engineIniParsed[`TURBO_${i}`]; i++) {
       var controllers = ctrlTurboInisParsed == null ? [] : AcTurboController.getControllers(ctrlTurboInisParsed[i]);
       turbos.push(new AcTurbo(section, controllers, !!ctrlTurboInisParsed[i]));
     }
 
-    return powerLutParsed.map(x => [ x[0], x[1] * (1.0 + turbos.reduce((a, b) => a + b.calculateMultipler(x[0]), 0.0)) ]);
+    return turbos;
+  }
+
+  static considerTurbos(powerLutParsed, engineIniParsed, ctrlTurboInisParsed){
+    var turbosList = getTurbosList(engineIniParsed, ctrlTurboInisParsed);
+    return powerLutParsed.map(x => [ x[0], AcTurbo.considerTurbosPoint(turbosList, x[0], x[1]) ]);
+  }
+
+  static considerTurbosPoint(turbosList, rpm, baseTorque){
+    var boost = 0;
+    for (var i = 0; i < turbosList.length; i++){
+      boost += turbosList[i].calculateMultipler(rpm);
+    }
+
+    return baseTorque * (1.0 + boost);
   }
 }
 

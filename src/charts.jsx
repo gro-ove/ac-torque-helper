@@ -153,8 +153,62 @@ function init(){
   }, false);
 }
 
+function getTangent(p0, p1){
+  return (p1[1] - p0[1]) / Math.abs(p1[0] - p0[0]);
+}
+
+function isFinite(value) {
+  return typeof value === 'number' && value === value && value !== Infinity && 
+      value !== -Infinity;
+};
+
+function optimizeCurve(curve){
+  if (curve.length < 3 || !settings.optimize()) return curve;
+
+  var optimized = [ curve[0] ];
+  var offset = 1;
+
+  for (var i = 1; i < curve.length - 1; i++){
+    var prev = curve[i - offset];
+    var current = curve[i];
+    var next = curve[i + 1];
+
+    var prevTangent = getTangent(prev, current);
+    var nextTangent = getTangent(current, next);
+    var finalCoefficient = Math.abs(1 - nextTangent / prevTangent);
+
+    if (isFinite(finalCoefficient) && finalCoefficient < 0.07){
+      offset++;
+    } else {
+      optimized.push(current);
+      offset = 1;
+    }
+  }
+
+  optimized.push(curve[curve.length - 1]);
+  return optimized;
+}
+
 function torqueToPower(torque){
   return torque.map(x => [ x[0], AcMath.torqueToPower(x[1], x[0]) ]);
+}
+
+function findMaxValue(data){
+  var result = 10;
+  for (var i = 0; i < data.length; i++){
+    var v = data[i][1];
+    if (v > result) result = v;
+  }
+  return result;
+}
+
+function areCurvesSame(a, b){
+  if (a.length !== b.length) return false;
+  for (var i = 0; i < a.length; i++){
+    var ap = a[i], bp = b[i];
+    if (ap[0] !== bp[0] || ap[1] !== bp[1]) return false;
+  }
+  return true;
 }
 
 function createChart(destination, torque, power){
@@ -204,31 +258,32 @@ function createChart(destination, torque, power){
   });
 }
 
-function findMaxValue(data){
-  var result = 10;
-  for (var i = 0; i < data.length; i++){
-    var v = data[i][1];
-    if (v > result) result = v;
-  }
-  return result;
-}
-
 function renderChart(destination, torque, power /*= null*/){
+  torque = optimizeCurve(torque);
+
   if (power == null) power = torqueToPower(torque);
+  power = optimizeCurve(power);
 
   var chart = createChart(destination, torque, power);
   var localLang = langChanged;
 
-  function update(torque, power /*= null*/){
-    console.log('update chart');
+  function update(newTorque, newPower /*= null*/){
+    newTorque = optimizeCurve(newTorque);
 
-    if (power == null) power = torqueToPower(torque);
+    if (areCurvesSame(torque, newTorque) && localLang == langChanged) return;
+    torque = newTorque;
+
+    if (newPower == null) newPower = torqueToPower(newTorque);
+    newPower = optimizeCurve(newPower);
+
+    console.log(`update chart (${newTorque.length + newPower.length} points in total)`);
+
     if (localLang != langChanged){
-      chart = createChart(destination, torque, power);
+      chart = createChart(destination, newTorque, newPower);
       localLang = langChanged;
     } else {
       if (settings.sameY()){
-        var max = Math.max(findMaxValue(power), findMaxValue(torque));
+        var max = Math.max(findMaxValue(newPower), findMaxValue(newTorque));
         chart.yAxis[0].update({ max: max });
         chart.yAxis[1].update({ max: max });
       } else {
@@ -238,8 +293,8 @@ function renderChart(destination, torque, power /*= null*/){
         }
       }
 
-      chart.series[0].update({ data: torque }, true);
-      chart.series[1].update({ data: power }, true);
+      chart.series[0].update({ data: newTorque }, true);
+      chart.series[1].update({ data: newPower }, true);
     }
   }
 
