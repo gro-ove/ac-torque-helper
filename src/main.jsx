@@ -663,34 +663,6 @@ var torqueHelper = {
   },
 
   viewEditSectionTabsMode: ctrl => {
-    function getEditorBlock(){
-      switch (ctrl.selectedTab()){
-        case 'power.lut':
-          return <div 
-              title={locales.current.dontForgetTransmissionLoss}
-              config={ctrl.highlighter(ctrl.model.powerLut)}
-              onchange={m.withAceValue(ctrl.model.powerLut)} />;
-
-        case 'engine.ini':
-          return <div 
-              title={locales.current.turboSectionsOnlyNeeded}
-              config={ctrl.highlighter(ctrl.model.engineIni)} 
-              onchange={m.withAceValue(ctrl.model.engineIni)} />;
-
-        default:
-          var turboController = ctrl.model.getTurboControllerById(ctrl.selectedTab());
-          if (!turboController){
-            ctrl.selectedTab(ctrl.previousTab() || 'power.lut');
-            ctrl.previousTab(null);
-            return getEditorBlock();
-          }
-
-          return turboController ? <div 
-              config={ctrl.highlighter(turboController.data)} 
-              onchange={m.withAceValue(turboController.data)} /> : null
-      }
-    }
-
     return <div class="main_section tabs_section">
       <table style="width:100%;height:100%"><tr><td style="height:auto">
         <div class="tabs">
@@ -729,7 +701,23 @@ var torqueHelper = {
           </a> )}
         </div>
       </td></tr><tr><td style="height:100%;width:100%;position:relative">
-        {getEditorBlock()}
+        <div 
+          style={ctrl.selectedTab() == 'power.lut' ? null : 'display:none'}
+          title={locales.current.dontForgetTransmissionLoss}
+          config={ctrl.highlighter(ctrl.model.powerLut)}
+          onchange={m.withAceValue(ctrl.model.powerLut)} />
+        <div 
+          style={ctrl.selectedTab() == 'engine.ini' ? null : 'display:none'}
+          title={locales.current.turboSectionsOnlyNeeded}
+          config={ctrl.highlighter(ctrl.model.engineIni)} 
+          onchange={m.withAceValue(ctrl.model.engineIni)} />
+        {ctrl.model.ctrlTurboInis.map((turboController, index) => 
+          <div 
+            style={ctrl.selectedTab() == turboController.id ? null : 'display:none'}
+            key={turboController.id}
+            config={ctrl.highlighter(turboController.data)} 
+            onchange={m.withAceValue(turboController.data)} />
+        )}
       </td></tr><tr><td style="height:auto">
         <div class="main_section_buttons">
           <button class="secondary" onclick={ctrl.addController}>{locales.current.addController}</button>
