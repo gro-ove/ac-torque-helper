@@ -511,6 +511,10 @@ var torqueHelper = {
         if (isInitialized){
           chart.update(values);
         } else {
+          if (chart != null){
+            chart.dispose();
+          }
+
           chart = charts.render(element, values);
         }
 

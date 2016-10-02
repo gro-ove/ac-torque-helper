@@ -4,6 +4,7 @@ var AcMath = require('src/acMath');
 
 var locales = require('src/locales');
 var settings = require('src/settings');
+var hashParams = require('src/hashParams');
 
 // module itself
 var torqueColor = '#ffff00';
@@ -203,6 +204,7 @@ function findMaxValue(data){
 }
 
 function areCurvesSame(a, b){
+  if (a == null || b == null) return a == b;
   if (a.length !== b.length) return false;
   for (var i = 0; i < a.length; i++){
     var ap = a[i], bp = b[i];
@@ -242,7 +244,7 @@ function createChart(destination, torque, power){
       shared: true
     },
     plotOptions: {
-      line: { marker: { enabled: false } },
+      line: { marker: { enabled: !!hashParams.markers } },
       series: { animation: false }
     },
     series: [{
@@ -258,32 +260,32 @@ function createChart(destination, torque, power){
   });
 }
 
-function renderChart(destination, torque, power /*= null*/){
-  torque = optimizeCurve(torque);
-
-  if (power == null) power = torqueToPower(torque);
-  power = optimizeCurve(power);
+function renderChart(destination, originalTorque, originalPower /*= null*/){
+  var torque = optimizeCurve(originalTorque);
+  var power = optimizeCurve(originalPower || torqueToPower(originalTorque));
 
   var chart = createChart(destination, torque, power);
   var localLang = langChanged;
 
   function update(newTorque, newPower /*= null*/){
-    newTorque = optimizeCurve(newTorque);
+    if (settings.optimize()){
+      if (areCurvesSame(originalTorque, newTorque) && localLang == langChanged) return;
+      originalTorque = newTorque;
+    } else {
+      originalTorque = null;
+    }
 
-    if (areCurvesSame(torque, newTorque) && localLang == langChanged) return;
-    torque = newTorque;
+    torque = optimizeCurve(newTorque);
+    power = optimizeCurve(newPower || torqueToPower(newTorque));
 
-    if (newPower == null) newPower = torqueToPower(newTorque);
-    newPower = optimizeCurve(newPower);
-
-    console.log(`update chart (${newTorque.length + newPower.length} points in total)`);
+    console.log(`update chart (${torque.length + power.length} points in total)`);
 
     if (localLang != langChanged){
-      chart = createChart(destination, newTorque, newPower);
+      chart = createChart(destination, torque, power);
       localLang = langChanged;
     } else {
       if (settings.sameY()){
-        var max = Math.max(findMaxValue(newPower), findMaxValue(newTorque));
+        var max = Math.max(findMaxValue(power), findMaxValue(torque));
         chart.yAxis[0].update({ max: max });
         chart.yAxis[1].update({ max: max });
       } else {
@@ -293,8 +295,8 @@ function renderChart(destination, torque, power /*= null*/){
         }
       }
 
-      chart.series[0].update({ data: newTorque }, true);
-      chart.series[1].update({ data: newPower }, true);
+      chart.series[0].update({ data: torque }, true);
+      chart.series[1].update({ data: power }, true);
     }
   }
 
@@ -302,9 +304,22 @@ function renderChart(destination, torque, power /*= null*/){
     return localLang != langChanged;
   }
 
+  function hashParamsUpdated(){
+    if (chart.options.plotOptions.line.marker.enabled != !!hashParams.markers){
+      chart = createChart(destination, torque, power);
+    }
+  }
+
+  hashParams.addEventListener('updated', hashParamsUpdated);
+
+  function dispose(){
+    hashParams.removeEventListener('updated', hashParamsUpdated);
+  }
+
   return {
     update: update,
-    updateRequired: updateRequired
+    updateRequired: updateRequired,
+    dispose: dispose,
   };
 }
 
