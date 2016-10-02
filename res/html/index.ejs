@@ -11,6 +11,6 @@
     <style><%= compilation.assets['dist.css'].source() %></style>
   </head>
   <body>
-    <script><%= compilation.assets['dist.js'].source() %></script>
+    <script><%= compilation.assets['dist.js'].source().replace('.dist.js",', '.dist.js?t=' + Date.now() + '",') %></script>
   </body>
 </html>
