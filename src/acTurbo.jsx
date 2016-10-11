@@ -20,9 +20,9 @@ class AcTurbo {
         boost = this.controllers[i].process(rpm, boost);
       }
     } else {
-      boost = this.maxBoost * baseLevel;
+      boost = this.maxBoost;
     }
-    return Math.min(this.wastegate, boost);
+    return Math.min(this.wastegate, boost * baseLevel);
   }
 
   // first attempt, apparently wrong

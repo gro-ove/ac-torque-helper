@@ -72,12 +72,12 @@ class AcTurboController {
         input = this.inputEntry.value;
     }
 
-    if (!Number.isNaN(this.upLimit) && this.upLimit < value){
-      value = this.upLimit;
+    if (!Number.isNaN(this.upLimit) && this.upLimit < input){
+      input = this.upLimit;
     }
 
-    if (!Number.isNaN(this.downLimit) && this.downLimit > value){
-      value = this.downLimit;
+    if (!Number.isNaN(this.downLimit) && this.downLimit > input){
+      input = this.downLimit;
     }
 
     var value = AcUtils.interpolateLinear(this.lut, input);
