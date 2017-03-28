@@ -1,4 +1,5 @@
 var AcTurbo = require('src/acTurbo');
+var AcErs = require('src/acErs');
 var AcUtils = require('src/acUtils');
 var settings = require('src/settings');
 
@@ -12,13 +13,36 @@ function getTurbosList(engineIniParsed, ctrlTurboInis){
   return AcTurbo.getTurbosList(engineIniParsed, ctrlTurboInisParsed);
 }
 
-function get_pointsMode(powerLutParsed, limit, turbos){
+function getErs(ersIni, ctrlErsInis, selectedId){
+  var ctrlErsInisParsed = ctrlErsInis.reduce((a, b) => (a[b.index()] = b.dataParsed(), a), {});
+  return new AcErs(ersIni, ctrlErsInisParsed, selectedId);
+}
+
+function getTorqueFn(turbos, ers){  
+  return (baseValue, rpm) => {
+    var withTurbos = AcTurbo.considerTurbosPoint(turbos, rpm, baseValue);
+    if (ers != null){
+      return withTurbos + ers.getTorque(rpm);
+    } else {
+      return withTurbos;
+    }
+  };
+}
+
+function getSplittedTorqueFn(turbos, ers){  
+  return (baseValue, rpm) => {
+    var withTurbos = AcTurbo.considerTurbosPoint(turbos, rpm, baseValue);
+    return { base: baseValue, turbo: withTurbos - baseValue, ers: ers != null ? ers.getTorque(rpm) : 0.0 };
+  };
+}
+
+function get_pointsMode(powerLutParsed, limit, torqueFn){
   var result = [];
 
   if (limit != null){
     var baseTorque = AcUtils.interpolateLinear(powerLutParsed, 0);
-    result.push([ 0, AcTurbo.considerTurbosPoint(turbos, 0, baseTorque) ]);
-  }
+    result.push([ 0, torqueFn(baseTorque, 0) ]);
+  }  
 
   for (var i = 0; i < powerLutParsed.length; i++){
     var p = powerLutParsed[i];
@@ -28,24 +52,24 @@ function get_pointsMode(powerLutParsed, limit, turbos){
     if (limit != null && pRpm >= limit){
       if (i == 0 || powerLutParsed[i - 1][0] < limit){
         var baseTorque = AcUtils.interpolateLinear(powerLutParsed, limit);
-        result.push([ limit, AcTurbo.considerTurbosPoint(turbos, limit, baseTorque) ]);
+        result.push([ limit, torqueFn(baseTorque, limit) ]);
       }
 
       return result;
     }
 
-    result.push([ pRpm, AcTurbo.considerTurbosPoint(turbos, pRpm, pTorque) ]);
+    result.push([ pRpm, torqueFn(pTorque, pRpm) ]);
   }
 
   if (limit != null){
     var baseTorque = AcUtils.interpolateLinear(powerLutParsed, limit);
-    result.push([ limit, AcTurbo.considerTurbosPoint(turbos, limit, baseTorque) ]);
+    result.push([ limit, torqueFn(baseTorque, limit) ]);
   }
 
   return result;
 }
 
-function get_simpleInterpolationMode(powerLutParsed, limit, turbos, steps){
+function get_simpleInterpolationMode(powerLutParsed, limit, torqueFn, steps){
   if (powerLutParsed.length == 0) return [];
 
   var startFrom = 0;
@@ -69,12 +93,12 @@ function get_simpleInterpolationMode(powerLutParsed, limit, turbos, steps){
         prevJ = j > 0 ? j - 1 : 0;
         break;
       } else if (pRpm > prevRpm && pRpm < rpm){
-        result.push([ pRpm, AcTurbo.considerTurbosPoint(turbos, pRpm, pTorque) ]);
+        result.push([ pRpm, torqueFn(pTorque, pRpm) ]);
       }
     }
 
     var baseTorque = AcUtils.interpolateLinear(powerLutParsed, rpm);
-    result.push([ rpm, AcTurbo.considerTurbosPoint(turbos, rpm, baseTorque) ]);
+    result.push([ rpm, torqueFn(baseTorque, rpm) ]);
 
     prevRpm = rpm;
   }
@@ -82,19 +106,40 @@ function get_simpleInterpolationMode(powerLutParsed, limit, turbos, steps){
   return result;
 }
 
-function get(pointsMode, steps, powerLutParsed, engineIniParsed, ctrlTurboInis){
+/* data: {
+  powerLutParsed,
+  engineIniParsed,
+  ersIniParsed,
+  ctrlTurboInis,
+  ctrlErsInis,
+  ersSelectedController,
+} */
+
+function _get(pointsMode, steps, data, torqueFnFn){
   var power;
 
-  var turbos = getTurbosList(engineIniParsed, ctrlTurboInis);
-  var limit = getLimit(powerLutParsed, engineIniParsed);
+  var turbos = getTurbosList(data.engineIniParsed, data.ctrlTurboInis);
+  var ers = data.ersIniParsed && data.ersSelectedController != AcErs.ERS_ID_DISABLED ? 
+      getErs(data.ersIniParsed, data.ctrlErsInis, data.ersSelectedController) : null;
+  var limit = getLimit(data.powerLutParsed, data.engineIniParsed);
+  var torqueFn = torqueFnFn(turbos, ers);
 
   if (pointsMode){
-    return get_pointsMode(powerLutParsed, limit, turbos);
+    return get_pointsMode(data.powerLutParsed, limit, torqueFn);
   } else {
-    return get_simpleInterpolationMode(powerLutParsed, limit, turbos, steps);
+    return get_simpleInterpolationMode(data.powerLutParsed, limit, torqueFn, steps);
   }
 }
 
+function get(pointsMode, steps, data){
+  return _get(pointsMode, steps, data, getTorqueFn);
+}
+
+function getSplitted(pointsMode, steps, data){
+  return _get(pointsMode, steps, data, getSplittedTorqueFn);
+}
+
 module.exports = {
-  get: get
+  get: get,
+  getSplitted: getSplitted,
 }

@@ -1,10 +1,10 @@
 var AcUtils = require('src/acUtils');
 var AcController = require('src/acController');
 
-class AcTurboController extends AcController {
+class AcErsController extends AcController {
   constructor(section) {
     super(section);
   }
 }
 
-module.exports = AcTurboController;
+module.exports = AcErsController;

@@ -1,3 +1,4 @@
+var AcController = require('src/acController');
 var AcTurboController = require('src/acTurboController');
 
 class AcTurbo {
@@ -22,7 +23,9 @@ class AcTurbo {
     } else {
       boost = this.maxBoost;
     }
-    return Math.min(this.wastegate, boost * baseLevel);
+
+    var result = boost * baseLevel;
+    return this.wastegate == 0 ? result : Math.min(this.wastegate, result);
   }
 
   // first attempt, apparently wrong
@@ -31,13 +34,13 @@ class AcTurbo {
     for (var i = 0; i < this.controllers.length; i++){
       boost = this.controllers[i].process(rpm, boost);
     }
-    return Math.min(this.wastegate, boost);
+    return this.wastegate == 0 ? boost : Math.min(this.wastegate, boost);
   }
 
   static getTurbosList(engineIniParsed, ctrlTurboInisParsed){
     var turbos = [];
     for (var i = 0, section; section = engineIniParsed[`TURBO_${i}`]; i++) {
-      var controllers = ctrlTurboInisParsed == null ? [] : AcTurboController.getControllers(ctrlTurboInisParsed[i]);
+      var controllers = ctrlTurboInisParsed == null ? [] : AcController.getControllers(ctrlTurboInisParsed[i]);
       turbos.push(new AcTurbo(section, controllers, !!ctrlTurboInisParsed[i]));
     }
 

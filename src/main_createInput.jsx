@@ -24,6 +24,15 @@ createInput.prop = function (title, prop, min, max, step, postfix, disabled){
   return createInput(title, prop(), m.withAttr('value', prop), min, max, step, postfix, disabled);
 };
 
+createInput.select = function (title, prop, values, disabled){
+  return <label class="input_label">
+    <div>{title}:</div>
+    <select value={prop()} disabled={disabled} oninput={m.withAttr('value', prop)}>{ 
+      values.map(x => <option value={x.value}>{x.title}</option>)
+    }</select>
+  </label>;
+};
+
 createInput.checkbox = function (title, prop, disabled){
   return <label style="display:block">
     <input

@@ -3,6 +3,7 @@
   + font size
   + layout
 - styled export-as-image
+- fix tab closing and restoring
 + notify about two controllers with same id
 + open-file-dialog
 + sync maxes of Y axes

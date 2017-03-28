@@ -37,6 +37,7 @@ m.propLocal = function(store, storageKey, callback){
   var loaded = load();
   if (loaded !== undefined){
     store = loaded;
+    callback && callback(store);
   }
 
   function prop(){
@@ -95,8 +96,11 @@ settings.init();
 var charts = require('src/charts');
 charts.init();
 
+var AcController = require('src/acTurboController');
 var AcTurbo = require('src/acTurbo');
+var AcErs = require('src/acErs');
 var AcTurboController = require('src/acTurboController');
+var AcErsController = require('src/acErsController');
 var AcUtils = require('src/acUtils');
 var AcMath = require('src/acMath');
 var Toast = require('src/toast');
@@ -108,24 +112,31 @@ var createInput = require('src/main_createInput');
 var swipes = require('src/main_swipes');
 
 var TurboControllersList = Array;
+var ErsControllersList = Array;
 var StateVariablesList = Array;
 
 class TorqueHelperModel {
-  constructor(powerLut, engineIni){
+  constructor(powerLut, engineIni, ersIni){
     this.transmissionLoss = m.propLocal(13, 'transmissionLoss');
     settings.oncurvechanged = this.curveMightChanged.bind(this);
 
     this.powerLut = m.propCallback(powerLut, this.powerLutChanged.bind(this));
     this.engineIni = m.propCallback(engineIni, this.engineIniChanged.bind(this));
     this.ctrlTurboInis = new TurboControllersList();
+    this.ersIni = m.propCallback(ersIni, this.ersIniChanged.bind(this));
+    this.ctrlErsInis = new ErsControllersList();
     this.stateVariables = new StateVariablesList();
 
     this.powerLutParsed = m.prop([]);
     this.engineIniParsed = m.prop({});
     this.turbosCount = m.prop(0);
+    this.ersIniParsed = m.prop({});
+    this.ersControllersNames = [];
+    this.ersSelectedController = m.propLocal(AcErs.ERS_ID_DEFAULT, 'ersId', this.curveMightChanged.bind(this));
 
     this.powerLutChanged(powerLut);
     this.engineIniChanged(engineIni);
+    this.ersIniChanged(ersIni);
     this.changeId = 0;
 
     this.preventSaving();
@@ -133,7 +144,7 @@ class TorqueHelperModel {
 
   static createDefault(){
     var created = new TorqueHelperModel(defaults.powerLut, defaults.engineIni);
-    created.addTurboController(0, defaults.controllerIni);
+    created.addTurboController(0, defaults.turboControllerIni);
     created.preventSaving();
     return created;
   }
@@ -146,12 +157,23 @@ class TorqueHelperModel {
       var data = JSON.parse(json);
       if (!data) return null;
 
-      var loaded = new TorqueHelperModel(data.powerLut, data.engineIni);
+      // model with main pieces of data
+      var loaded = new TorqueHelperModel(data.powerLut, data.engineIni, data.ersIni);
+
+      // turbo controllers
       for (var i = 0; i < data.ctrlTurboInis.length; i++){
         var entry = data.ctrlTurboInis[i];
         loaded.addTurboController(entry.index, entry.data);
       }
 
+      // ers controllers
+      for (var i = 0; i < data.ctrlErsInis.length; i++){
+        var entry = data.ctrlErsInis[i];
+        loaded.addErsController(entry.index, entry.data);
+      }
+
+      loaded.updateStateVariables();
+      loaded.updateErsControllersNames();
       loaded.preventSaving();
       return loaded;
     } catch(e){
@@ -176,7 +198,12 @@ class TorqueHelperModel {
       localStorage['data'] = JSON.stringify({
         powerLut: this.powerLut(),
         engineIni: this.engineIni(),
+        ersIni: this.ersIni(),
         ctrlTurboInis: this.ctrlTurboInis.map(x => ({
+          index: x.index(),
+          data: x.data()
+        })),
+        ctrlErsInis: this.ctrlErsInis.map(x => ({
           index: x.index(),
           data: x.data()
         })),
@@ -203,6 +230,19 @@ class TorqueHelperModel {
     this.save();
   }
 
+  ersIniChanged(newValue){
+    var parsed = newValue == null ? null : AcUtils.parseIni(newValue);
+    this.ersIniParsed(parsed);
+    this.save();
+  }
+
+  updateErsControllersNames(){
+    this.ersControllersNames = this.ctrlErsInis.map((x, i) => (x.dataParsed()['HEADER'] || {})['NAME'] || `Controller #${i + 1}`);
+    if (this.ersSelectedController() > this.ersControllersNames.length){
+      this.ersSelectedController(AcErs.ERS_ID_DEFAULT);
+    }
+  }
+
   addTurboController(index = -1, data = ''){
     if (index == -1){
       index = this.ctrlTurboInis.length > 0 ?
@@ -216,6 +256,27 @@ class TorqueHelperModel {
     return created;
   }
 
+  addErsController(index = -1, data = ''){
+    if (index == -1){
+      index = this.ctrlErsInis.length > 0 ?
+          +this.ctrlErsInis[this.ctrlErsInis.length - 1].index() + 1 :
+          0;
+    }
+
+    var created = new ErsControllerModel(index, data, this);
+    this.ctrlErsInis.push(created);
+    created.init();
+    return created;
+  }
+
+  addErs(data = ''){
+    this.ersIni(data);
+  }
+
+  deleteErs(){
+    this.ersIni(null);
+  }
+
   getTurboController(index = 0){
     var list = this.ctrlTurboInis;
     for (var i = 0; i < list.length; i++){
@@ -225,6 +286,20 @@ class TorqueHelperModel {
 
   getTurboControllerById(id = 0){
     var list = this.ctrlTurboInis;
+    for (var i = 0; i < list.length; i++){
+      if (list[i].id == id) return list[i];
+    }
+  }
+
+  getErsController(index = 0){
+    var list = this.ctrlErsInis;
+    for (var i = 0; i < list.length; i++){
+      if (list[i].index() == index) return list[i];
+    }
+  }
+
+  getErsControllerById(id = 0){
+    var list = this.ctrlErsInis;
     for (var i = 0; i < list.length; i++){
       if (list[i].id == id) return list[i];
     }
@@ -242,6 +317,23 @@ class TorqueHelperModel {
       this.save();
       this.checkTurboControllersIndexes();
       this.updateStateVariables();
+    }).show();
+  }
+
+  deleteErsController(ersController){
+    var index = this.ctrlErsInis.indexOf(ersController);
+    this.ctrlErsInis.splice(index, 1);
+    this.save();
+    this.checkErsControllersIndexes();
+    this.updateStateVariables();
+    this.updateErsControllersNames();
+
+    new Toast('ersControllerDeleted', () => {
+      this.ctrlErsInis.splice(index, 0, ersController);
+      this.save();
+      this.checkErsControllersIndexes();
+      this.updateStateVariables();
+      this.updateErsControllersNames();
     }).show();
   }
 
@@ -264,17 +356,35 @@ class TorqueHelperModel {
     }
   }
 
+  checkErsControllersIndexes(){
+    var existing = {};
+    var dublicates = {};
+
+    var list = this.ctrlErsInis;
+    for (var i = 0; i < list.length; i++){
+      var x = list[i].index();
+      if (existing[x]){
+        dublicates[x] = true;
+      } else {
+        existing[x] = true;
+      }
+    }
+
+    for (var i = 0; i < list.length; i++){
+      list[i].dublicateIndex = !!dublicates[list[i].index()];
+    }
+  }
+
   updateStateVariables(){
     var stateVariables = this.stateVariables;
     stateVariables.length = 0;
 
-    var list = this.ctrlTurboInis;
     var added = {};
 
-    for (var i = 0; i < list.length; i++){
-      var keys = list[i].stateVariablesKeys;
+    var _this = this;
+    function add(keys){
       for (var j = 0; j < keys.length; j++){
-        var entry = AcTurboController.getStateVariableEntry(keys[j]);
+        var entry = AcController.getStateVariableEntry(keys[j]);
         var key = entry.key;
 
         if (added[key]) continue;
@@ -282,20 +392,63 @@ class TorqueHelperModel {
 
         stateVariables.push({
           key: key,
-          value: m.propLocal(entry.value, 'input' + key, v => {
-            entry.value = v;
-            this.curveMightChanged();
-          })
+          value: m.propLocal(entry.value, 'input' + key, (function (t, e, v){
+            e.value = +v;
+            t.curveMightChanged();
+          }).bind(null, _this, entry))
         });
+      }
+    }
+
+    var turboList = this.ctrlTurboInis;
+    for (var i = 0; i < turboList.length; i++){
+      add(turboList[i].stateVariablesKeys);
+    }
+
+    if (this.ersIni()){
+      add([ 'GAS' ]);
+
+      var ersList = this.ctrlErsInis;
+      for (var i = 0; i < ersList.length; i++){
+        add(ersList[i].stateVariablesKeys);
       }
     }
   }
 
-  handleFile(name, data, single){
-    if (/power/.test(name) || single && /^\d+(?:\.\d*)?\|\d+/.test(data)){
+  includeLutsCallback(data, callback){
+    return data.replace(/(\b(?:[A-Z_]+_CURVE|LUT)\s*=\s*)(?![\(\[|=])([\.\w-() ]+\.lut)/g, 
+      (_, prefix, name) => {
+        name = name.toLowerCase();
+
+        var data = callback(name);
+        if (data != null){
+          return prefix + '(|' + AcUtils.parseLut(data).map(x => x.join('=')).join('|') + '|)';
+        }
+
+        console.warn('not found: ' + name);
+        return prefix + name;
+      });
+  }
+
+  includeLuts(data, allFiles){
+    if (allFiles == null) return data;
+    return this.includeLutsCallback(data, name => {
+      for (var i = 0; i < allFiles.length; i++){
+        var file = allFiles[i];
+        if (file.name.toLowerCase() == name){
+          return file.data;
+        }
+      }
+    });
+  }
+
+  handleFile(name, data, single, allFiles){
+    if (/\bpower\b/.test(name) || single && /^\d+(?:\.\d*)?\|\d+/.test(data)){
       this.powerLut(data);
-    } else if (/engine/.test(name) || single && /\[TURBO_|\[ENGINE_/.test(data)){
+    } else if (/\bengine\b/.test(name) || single && /\[TURBO_|\[ENGINE_/.test(data)){
       this.engineIni(data);
+    } else if (/\bers\b/.test(name) || single && /\[KINETIC/.test(data)){
+      this.ersIni(this.includeLuts(data, allFiles));
     } else if (/ctrl_turbo(\d+)/.test(name)){
       var index = RegExp.$1;
 
@@ -306,8 +459,36 @@ class TorqueHelperModel {
       } else {
         this.addTurboController(index, data);
       }
+    } else if (/ctrl_ers_(\d+)/.test(name)){
+      var index = RegExp.$1;
+
+      var c = this.getErsController(index);
+      if (c != null){
+        c.data(this.includeLuts(data, allFiles));
+        this.save();
+      } else {
+        this.addErsController(index, this.includeLuts(data, allFiles));
+      }
     } else if (single && /\[CONTROLLER_/.test(data)){
-      this.addTurboController(-1, data);
+      if (/\[HEADER_/.test(data) && /\bNAME\s*=/.test(data)){
+        this.addErsController(-1, this.includeLuts(data, allFiles));
+      } else {
+        this.addTurboController(-1, data);
+      }
+    } else if (/ers(?![a-z]).*\.lut/.test(name)){
+      var ers = this.ctrlErsInis;
+      for (var i = 0; i < ers.length; i++){
+        var original = ers[i].data();
+        var updated = this.includeLutsCallback(original, n => {
+          if (name.toLowerCase() == n){
+            return data;
+          }
+        });
+        
+        if (updated != original){
+          ers[i].data(updated);
+        }
+      }
     } else {
       return false;
     }
@@ -327,10 +508,13 @@ class TorqueHelperModel {
       }))
     ).then(all => {
       m.startComputation();
-      var notRecognized = [].filter.call(all, f => !this.handleFile(f.name, f.data, all.length == 1));
+      var notRecognized = [].filter.call(all, f => !this.handleFile(f.name, f.data, all.length == 1, all));
       m.endComputation();
 
-      if (notRecognized.length && all.length < 4){
+      if (notRecognized.length < all.length){        
+        this.updateStateVariables();
+        this.updateErsControllersNames();
+      }else {
         console.warn(notRecognized);
         new Toast('cannotRecognizeType').showOnce();
       }
@@ -377,6 +561,17 @@ class TorqueHelperModel {
     };
   }
 
+  toObject(){
+    return {
+      powerLutParsed: this.powerLutParsed(),
+      engineIniParsed: this.engineIniParsed(),
+      ersIniParsed: this.ersIniParsed(),
+      ctrlTurboInis: this.ctrlTurboInis,
+      ctrlErsInis: this.ctrlErsInis,
+      ersSelectedController: this.ersSelectedController()
+    };
+  }
+
   copyUiData(){
     var transmissionLoss = 1.0 - +this.transmissionLoss() / 100.0;
     if (Number.isNaN(transmissionLoss)){
@@ -384,7 +579,7 @@ class TorqueHelperModel {
       return;
     }
 
-    var power = resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), this.powerLutParsed(), this.engineIniParsed(), this.ctrlTurboInis);
+    var power = resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), this.toObject());
     var value = JSON.stringify({
       torqueCurve: power.map(x => [ x[0], +(x[1] * transmissionLoss).toFixed(1) ]),
       powerCurve: power.map(x => [ x[0], +AcMath.torqueToPower(x[1] * transmissionLoss, x[0]).toFixed(1) ])
@@ -430,6 +625,59 @@ class TorqueHelperModel {
         zip.file(`ctrl_turbo${entry.index()}.ini`, entry.data());
       }
 
+      var lutNames = [];
+      function extractLut(entryData, lutFinderFn){
+        var iniParsed = AcUtils.parseIni(entryData);
+
+        lutFinderFn(iniParsed).forEach(pair => {
+          var sectionLut = pair.value;
+          var lutNameBase = pair.lutName;
+
+          if (!/\.lut\s*$/i.test(sectionLut)){
+            var lutName = lutNameBase;
+            for (var j = 2; j < 999; j++){
+              if (lutNames.indexOf(lutName) !== -1){
+                lutName = lutName.replace(/\.lut/, `_${j}.lut`);
+              }
+            }
+
+            zip.file(lutName, sectionLut.replace(/^\(\|?|\|?\)$/g, '').replace(/\|/g, '\n').replace(/=/g, '|'));
+            entryData = entryData.replace(sectionLut, lutName);
+          }
+        });
+
+        return entryData;
+      }
+
+      if (this.ersIni()){
+        zip.file('ers.ini', extractLut(this.ersIni(), iniParsed => {
+          var section = iniParsed['KINETIC'];
+          if (!section) return [];
+
+          return [
+            { value: section['TORQUE_CURVE'], lutName: 'kers_torque.lut' },
+            { value: section['COAST_CURVE'], lutName: 'kers_torque_coast.lut' },
+          ];
+        }));
+
+        for (var i = 0; i < this.ctrlErsInis.length; i++){
+          var entry = this.ctrlErsInis[i];
+
+          var entryData = extractLut(entry.data(), iniParsed => {
+            var found = [];
+            for (var k = 0, section; section = iniParsed[`CONTROLLER_${k}`]; k++) {
+              found.push({
+                value: section['LUT'],
+                lutName: `ers${entry.index()}_${section['INPUT'].replace(/\W+/g, '_').replace(/^_|_$|_KMH/g, '').toLowerCase()}.lut`
+              });
+            }
+            return found;
+          });
+
+          zip.file(`ctrl_ers_${entry.index()}.ini`, entryData);
+        }
+      }
+
       zip.generateAsync({ type: 'blob' }).then(content => {
         saveAs(content, 'actorquehelper_data.zip');
         new Toast('savedAsZipArchive').show();
@@ -438,8 +686,9 @@ class TorqueHelperModel {
   }
 
   toImage(){
-    var values = resultingTorqueCurve.get(settings.pointsMode(), 400, this.powerLutParsed(), 
-        this.engineIniParsed(), this.ctrlTurboInis);
+    var values = settings.splitGraph() ? 
+        resultingTorqueCurve.getSplitted(settings.pointsMode(), 400, this.toObject()) :
+        resultingTorqueCurve.get(settings.pointsMode(), 400, this.toObject());
     charts.export(values, null, 1024, 768, () => {
       new Toast('imageExported').show();
     });
@@ -479,10 +728,89 @@ class TurboControllerModel {
     var parsed = AcUtils.parseIni(newValue);
     this.dataParsed(parsed);
 
-    var keys = AcTurboController.getInputKeys(parsed);
+    var keys = AcController.getInputKeys(parsed);
     if (!isArraysEqual(keys, this.stateVariablesKeys)){
       this.stateVariablesKeys = keys;
       this.parent && this.parent.updateStateVariables();
+    }
+
+    if (this.parent){
+      this.parent.save();
+    }
+  }
+}
+
+class ErsModel {
+  constructor(data, torqueHelperModel){
+    this.parent = torqueHelperModel;
+    this.data = m.propCallback(data, this.dataChanged.bind(this));
+    this.dataParsed = m.prop({});
+  }
+
+  init(){
+    this.dataChanged(this.data());
+  }
+
+  getFilename(){
+    return `ers.ini`;
+  }
+
+  dataChanged(newValue){
+    var parsed = AcUtils.parseIni(newValue);
+    this.dataParsed(parsed);
+
+    if (this.parent){
+      this.parent.save();
+    }
+  }
+}
+
+var ersControllerId = 0;
+
+class ErsControllerModel {
+  constructor(index, data, torqueHelperModel){
+    this.id = ersControllerId++;
+    this.parent = torqueHelperModel;
+
+    this.index = m.propCallback(index, this.indexChanged.bind(this));
+    this.data = m.propCallback(data, this.dataChanged.bind(this));
+    this.dataParsed = m.prop({});
+    this.stateVariablesKeys = [];
+    this.name = null;
+  }
+
+  init(){
+    this.indexChanged(this.index());
+    this.dataChanged(this.data());
+  }
+
+  getFilename(){
+    return `ctrl_ers_${this.index()}.ini`;
+  }
+
+  indexChanged(newValue){
+    if (this.parent){
+      this.parent.save();
+      this.parent.checkErsControllersIndexes();
+    }
+  }
+
+  dataChanged(newValue){
+    var parsed = AcUtils.parseIni(newValue);
+    this.dataParsed(parsed);
+
+    var keys = AcController.getInputKeys(parsed);
+    if (!isArraysEqual(keys, this.stateVariablesKeys)){
+      this.stateVariablesKeys = keys;
+      if (this.parent){
+        this.parent.updateStateVariables();
+      }
+    }
+
+    var name = (parsed['HEADER'] || {})['NAME'];
+    if (name != this.name){
+      this.name = name;
+      this.parent.updateErsControllersNames();
     }
 
     if (this.parent){
@@ -505,8 +833,9 @@ var torqueHelper = {
       return (element, isInitialized) => {
         if (isInitialized && changeId == model.changeId && !chart.updateRequired()) return;
 
-        var values = resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), model.powerLutParsed(), 
-            model.engineIniParsed(), model.ctrlTurboInis);
+        var values = settings.splitGraph() ? 
+            resultingTorqueCurve.getSplitted(settings.pointsMode(), settings.steps(), model.toObject()) :
+            resultingTorqueCurve.get(settings.pointsMode(), settings.steps(), model.toObject());
 
         if (isInitialized){
           chart.update(values);
@@ -582,14 +911,37 @@ var torqueHelper = {
       e.preventDefault();
     }
 
-    function addController(){
-      selectTab(model.addTurboController(-1, defaults.controllerIni).id);
+    function addTurboController(){
+      selectTab(model.addTurboController(-1, defaults.turboControllerIni).id);
+    }
+
+    function addErsController(){
+      selectTab(model.addErsController(-1, defaults.ersControllerHotlapIni).id);
+    }
+
+    function addErs(){
+      model.addErs(defaults.ersIni);
+      selectTab('ers.ini');
+
+      if (model.ctrlErsInis.length == 0){
+        model.addErsController(-1, defaults.ersControllerChargingIni);
+        model.addErsController(-1, defaults.ersControllerHotlapIni);
+      } else {
+        model.updateStateVariables();
+      }
+    }
+
+    function deleteErs(){
+      model.deleteErs();
+      model.updateStateVariables();
     }
 
     return {
       model: model,
-      addTurboController: () => model.addTurboController(-1, defaults.controllerIni),
+      addErs: addErs,
+      deleteErs: deleteErs,
       deleteTurboController: c => model.deleteTurboController(c),
+      deleteErsController: c => model.deleteErsController(c),
       plotter: plotter,
       highlighter: highlighter,
       handleDrop: handleDrop,
@@ -598,7 +950,8 @@ var torqueHelper = {
       selectedTab: selectedTab,
       previousTab: previousTab,
       tabClick: tabClick,
-      addController: addController,
+      addTurboController: addTurboController,
+      addErsController: addErsController,
     }
   },
 
@@ -606,8 +959,16 @@ var torqueHelper = {
     var warning = turboController.dublicateIndex ? locales.current.dublicateIndex : 
         !ctrl.model.engineIniParsed()[`TURBO_${turboController.index()}`] ? locales.current.noTurboForController : null;
     return [
-      warning ? <i class="icon icon-warning" style="float:left;margin-right:2px" title={locales.current.dublicateIndex} /> : null,
+      warning ? <i class="icon icon-warning" style="float:left;margin-right:2px" title={warning} /> : null,
       <span>ctrl_turbo<input type="number" min="0" max="10" oninput={m.withAttr('value', turboController.index)} value={turboController.index()} style="width:40px" />.ini</span>
+    ];
+  },
+
+  viewErsControllerDisplayName: (ctrl, ersController, index) => {
+    var warning = ersController.dublicateIndex ? locales.current.dublicateIndex : null;
+    return [
+      warning ? <i class="icon icon-warning" style="float:left;margin-right:2px" title={warning} /> : null,
+      <span>ctrl_ers_<input type="number" min="0" max="10" oninput={m.withAttr('value', ersController.index)} value={ersController.index()} style="width:40px" />.ini</span>
     ];
   },
 
@@ -644,8 +1005,32 @@ var torqueHelper = {
         </div>
       )}
 
+      {ctrl.model.ersIni() ? <div class="file_section">
+        <button class="h6_button" onclick={ctrl.deleteErs}>{locales.current.delete}</button>
+        <h6>ers.ini:</h6>
+        <div 
+          config={ctrl.highlighter(ctrl.model.ersIni)} 
+          onchange={m.withAceValue(ctrl.model.ersIni)} />
+      </div> : null}
+
+      {ctrl.model.ersIni() ? ctrl.model.ctrlErsInis.map((ersController, index) => 
+        <div class="file_section" key={`ers_${ersController.id}`}>
+          <button class="h6_button" onclick={ctrl.deleteErsController.bind(this, ersController)}>{locales.current.delete}</button>
+          <h6>{
+            ersController.dublicateIndex ?
+                <i class="icon icon-warning" style="float:left;margin-right:4px" title={locales.current.dublicateIndex} /> :
+                null }ctrl_ers_<input type="number" min="0" max="10" oninput={m.withAttr('value', ersController.index)} value={ersController.index()} style="width:40px" />.ini:</h6>
+          <div 
+            config={ctrl.highlighter(ersController.data)} 
+            onchange={m.withAceValue(ersController.data)} />
+        </div>
+      ) : null}
+
       <div class="main_section_buttons">
-        <button class="secondary" onclick={ctrl.addTurboController}>{locales.current.addController}</button>
+        {ctrl.model.ersIni() ?
+            <button class="secondary" onclick={ctrl.addErsController}>{locales.current.addErsController}</button> :
+            <button class="secondary" onclick={ctrl.addErs}>{locales.current.addErs}</button>}
+        <button class="secondary" onclick={ctrl.addTurboController}>{locales.current.addTurboController}</button>
         <button class="secondary" onclick={ctrl.model.toZipArchive.bind(ctrl.model)}>{locales.current.getZipped}</button>
       </div>
 
@@ -703,6 +1088,51 @@ var torqueHelper = {
               }}>×</button>
             </span>
           </a> )}
+          {ctrl.model.ersIni() ? <a 
+            href="#" 
+            data-key="ers.ini"
+            class={ctrl.selectedTab() == 'ers.ini' ? 'ghost_complex active' : 'ghost_complex'} 
+            onclick={ctrl.tabClick}>
+            <span class="actual">
+              <span>ers.ini</span>
+              <button onclick={e => {
+                ctrl.deleteErs();
+                e.preventDefault();
+                e.stopPropagation();
+              }}>×</button>
+            </span>
+            <span class="ghost">
+              <span>ers.ini</span>
+              <button onclick={e => {
+                ctrl.deleteErs();
+                e.preventDefault();
+                e.stopPropagation();
+              }}>×</button>
+            </span>
+          </a> : null}
+          {ctrl.model.ersIni() ? ctrl.model.ctrlErsInis.map((ersController, index) => <a 
+            href="#" 
+            data-key={ersController.id} 
+            class={ctrl.selectedTab() == ersController.id ? 'ghost_complex active' : 'ghost_complex'} 
+            onclick={ctrl.tabClick} 
+            key={`ers_${ersController.id}`}>
+            <span class="actual">
+              { torqueHelper.viewErsControllerDisplayName(ctrl, ersController, index) }
+              <button onclick={e => {
+                ctrl.deleteErsController(ersController);
+                e.preventDefault();
+                e.stopPropagation();
+              }}>×</button>
+            </span>
+            <span class="ghost">
+              { torqueHelper.viewErsControllerDisplayName(ctrl, ersController, index) }
+              <button onclick={e => {
+                ctrl.deleteErsController(ersController);
+                e.preventDefault();
+                e.stopPropagation();
+              }}>×</button>
+            </span>
+          </a> ) : null}
         </div>
       </td></tr><tr><td style="height:100%;width:100%;position:relative">
         <div 
@@ -722,10 +1152,24 @@ var torqueHelper = {
             config={ctrl.highlighter(turboController.data)} 
             onchange={m.withAceValue(turboController.data)} />
         )}
+        {ctrl.model.ersIni() ? <div 
+          style={ctrl.selectedTab() == 'ers.ini' ? null : 'display:none'}
+          config={ctrl.highlighter(ctrl.model.ersIni)} 
+          onchange={m.withAceValue(ctrl.model.ersIni)} /> : null}
+        {ctrl.model.ersIni() ? ctrl.model.ctrlErsInis.map((ersController, index) => 
+          <div 
+            style={ctrl.selectedTab() == ersController.id ? null : 'display:none'}
+            key={`ers_${ersController.id}`}
+            config={ctrl.highlighter(ersController.data)} 
+            onchange={m.withAceValue(ersController.data)} />
+        ) : null}
       </td></tr><tr><td style="height:auto">
         <div class="main_section_buttons">
-          <button class="secondary" onclick={ctrl.addController}>{locales.current.addController}</button>
-          <button class="secondary" onclick={ctrl.model.toZipArchive.bind(ctrl.model)}>{locales.current.getZipped}</button>
+        {ctrl.model.ersIni() ?
+            <button class="secondary" onclick={ctrl.addErsController}>{locales.current.addErsController}</button> :
+            <button class="secondary" onclick={ctrl.addErs}>{locales.current.addErs}</button>}
+        <button class="secondary" onclick={ctrl.addTurboController}>{locales.current.addTurboController}</button>
+        <button class="secondary" onclick={ctrl.model.toZipArchive.bind(ctrl.model)}>{locales.current.getZipped}</button>
         </div>
 
         <div class="commentary" style="position:relative">
@@ -780,9 +1224,17 @@ var torqueHelper = {
               <div class="file_section additional_padding" style="margin-bottom:16px">
                 {
                   ctrl.model.stateVariables.map(x => {
-                    var params = AcTurboController.getInputParams(x.key);
+                    var params = AcController.getInputParams(x.key);
                     return createInput.prop(locales.current['input' + x.key] || x.key, x.value, params.min, params.max, params.step);
                   })
+                }{
+                  ctrl.model.ersIni() && ctrl.model.ersControllersNames.length > 1 ?
+                    createInput.select(locales.current.ersSelectedController, ctrl.model.ersSelectedController, 
+                      [
+                        { title: locales.current.ersDisabledController, value: AcErs.ERS_ID_DISABLED },
+                        { title: locales.current.ersDefaultController, value: AcErs.ERS_ID_DEFAULT }
+                      ].concat(ctrl.model.ersControllersNames.map((n, i) => ({ title: n, value: i })))) :
+                    null
                 }</div> : null }
 
             <div

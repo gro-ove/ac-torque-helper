@@ -136,6 +136,7 @@ var settingsComponent = {
       </label>
 
       <h6>{locales.current.curves}:</h6>
+      { createInput.checkbox(locales.current.splitGraph, settings.splitGraph) }
       { createInput.checkbox(locales.current.engineIniRpmLimit, settings.engineIniRpmLimit) }
       { createInput.checkbox(locales.current.sameY, settings.sameY) }
       { createInput.checkbox(locales.current.curvesByPowerLutPoints, settings.pointsMode) }
@@ -160,7 +161,8 @@ var settings = {
   pointsMode: m.propLocal(false, 'pointsMode', curveMightChanged),
   steps: m.propLocal(100, 'steps', curveMightChanged),
   sameY: m.propLocal(true, 'sameY', curveMightChanged),
-  optimize: m.propLocal(true, 'optimize', curveMightChanged),
+  optimize: m.propLocal(true, 'optimize', curveMightChanged), // temporary disabled anyway
+  splitGraph: m.propLocal(true, 'splitGraph', curveMightChanged),
 
   oncurvechanged: null,
 
