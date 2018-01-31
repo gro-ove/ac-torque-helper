@@ -28,6 +28,7 @@
   "copiedToClipboard": "Скопировано в буфер обмена",
   "savedAsZipArchive": "Запаковано и сохранено",
   "imageExported": "Сохранено как изображение",
+  "imageExportFailed": "В таком браузере сохранить не получится",
   "cannotRecognizeType": "Не удалось определить тип файла",
 
   "seriesErs": "KERS",

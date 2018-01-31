@@ -85,11 +85,11 @@ class AcController {
         break;
     }
 
-    if (!Number.isNaN(this.upLimit) && this.upLimit < current){
+    if (!isNaN(this.upLimit) && this.upLimit < current){
       current = this.upLimit;
     }
 
-    if (!Number.isNaN(this.downLimit) && this.downLimit > current){
+    if (!isNaN(this.downLimit) && this.downLimit > current){
       current = this.downLimit;
     }
 

@@ -1,3 +1,9 @@
+// specially for messed up mithril or webbrowsers or whatever is behind it
+// I hate web
+if (!('event' in window)){
+  window.event = {};
+}
+
 var m = require('mithril');
 
 m.withAceValue = function(callback){
@@ -117,6 +123,8 @@ var StateVariablesList = Array;
 
 class TorqueHelperModel {
   constructor(powerLut, engineIni, ersIni){
+    this._loading = true;
+
     this.transmissionLoss = m.propLocal(13, 'transmissionLoss');
     settings.oncurvechanged = this.curveMightChanged.bind(this);
 
@@ -139,6 +147,7 @@ class TorqueHelperModel {
     this.ersIniChanged(ersIni);
     this.changeId = 0;
 
+    this._loading = false;
     this.preventSaving();
   }
 
@@ -159,6 +168,7 @@ class TorqueHelperModel {
 
       // model with main pieces of data
       var loaded = new TorqueHelperModel(data.powerLut, data.engineIni, data.ersIni);
+      loaded._loading = true;
 
       // turbo controllers
       for (var i = 0; i < data.ctrlTurboInis.length; i++){
@@ -171,6 +181,8 @@ class TorqueHelperModel {
         var entry = data.ctrlErsInis[i];
         loaded.addErsController(entry.index, entry.data);
       }
+
+      loaded._loading = false;
 
       loaded.updateStateVariables();
       loaded.updateErsControllersNames();
@@ -238,7 +250,7 @@ class TorqueHelperModel {
 
   updateErsControllersNames(){
     this.ersControllersNames = this.ctrlErsInis.map((x, i) => (x.dataParsed()['HEADER'] || {})['NAME'] || `Controller #${i + 1}`);
-    if (this.ersSelectedController() > this.ersControllersNames.length){
+    if (!this._loading && this.ersSelectedController() > this.ersControllersNames.length){
       this.ersSelectedController(AcErs.ERS_ID_DEFAULT);
     }
   }
@@ -253,6 +265,7 @@ class TorqueHelperModel {
     var created = new TurboControllerModel(index, data, this);
     this.ctrlTurboInis.push(created);
     created.init();
+    turboIdFix++;
     return created;
   }
 
@@ -311,6 +324,7 @@ class TorqueHelperModel {
     this.save();
     this.checkTurboControllersIndexes();
     this.updateStateVariables();
+    turboIdFix++;
 
     new Toast('turboControllerDeleted', () => {
       this.ctrlTurboInis.splice(index, 0, turboController);
@@ -574,7 +588,7 @@ class TorqueHelperModel {
 
   copyUiData(){
     var transmissionLoss = 1.0 - +this.transmissionLoss() / 100.0;
-    if (Number.isNaN(transmissionLoss)){
+    if (isNaN(transmissionLoss)){
       console.warn('transmissionLoss is invalid');
       return;
     }
@@ -678,8 +692,12 @@ class TorqueHelperModel {
         }
       }
 
+      function dateId() {
+        return new Date().toISOString().replace(/\W/g, '').replace(/[A-Z]/g, '-').replace(/\D$/, '');
+      }
+
       zip.generateAsync({ type: 'blob' }).then(content => {
-        saveAs(content, 'actorquehelper_data.zip');
+        saveAs(content, 'actorquehelper_data_' + dateId() + '.zip');
         new Toast('savedAsZipArchive').show();
       });
     });
@@ -689,8 +707,12 @@ class TorqueHelperModel {
     var values = settings.splitGraph() ? 
         resultingTorqueCurve.getSplitted(settings.pointsMode(), 400, this.toObject()) :
         resultingTorqueCurve.get(settings.pointsMode(), 400, this.toObject());
-    charts.export(values, null, 1024, 768, () => {
-      new Toast('imageExported').show();
+    charts.export(values, null, 1024, 768, e => {
+      if (e == null){
+        new Toast('imageExported').show();
+      } else {        
+        new Toast('imageExportFailed').show();
+      }
     });
   }
 }
@@ -822,6 +844,7 @@ class ErsControllerModel {
 var interpolateDebug = null;
 // interpolateDebug = require('src/acUtils_interpolateDebug');
 
+var turboIdFix = 0;
 var torqueHelper = {
   controller: () => {
     var model = TorqueHelperModel.load() || TorqueHelperModel.createDefault();
@@ -991,13 +1014,13 @@ var torqueHelper = {
       </div>
 
       {ctrl.model.ctrlTurboInis.map((turboController, index) => 
-        <div class="file_section" key={turboController.id}>
+        <div class="file_section">
           <button class="h6_button" onclick={ctrl.deleteTurboController.bind(this, turboController)}>{locales.current.delete}</button>
           <h6>{
             turboController.dublicateIndex ?
-                <i class="icon icon-warning" style="float:left;margin-right:4px" title={locales.current.dublicateIndex} /> :
+                <i class="icon icon-warning" key="dublicate-warning" style="float:left;margin-right:4px" title={locales.current.dublicateIndex} /> :
             !ctrl.model.engineIniParsed()[`TURBO_${turboController.index()}`] ? 
-                <i class="icon icon-warning" style="float:left;margin-right:4px" title={locales.current.noTurboForController} /> : 
+                <i class="icon icon-warning" key="no-turbo-warning" style="float:left;margin-right:4px" title={locales.current.noTurboForController} /> : 
               null }ctrl_turbo<input type="number" min="0" max="10" oninput={m.withAttr('value', turboController.index)} value={turboController.index()} style="width:40px" />.ini:</h6>
           <div 
             config={ctrl.highlighter(turboController.data)} 
@@ -1005,7 +1028,7 @@ var torqueHelper = {
         </div>
       )}
 
-      {ctrl.model.ersIni() ? <div class="file_section">
+      {ctrl.model.ersIni() ? <div class="file_section" key='ers_base'>
         <button class="h6_button" onclick={ctrl.deleteErs}>{locales.current.delete}</button>
         <h6>ers.ini:</h6>
         <div 

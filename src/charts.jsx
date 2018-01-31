@@ -453,8 +453,8 @@ function createChart(destination, data){
       shared: true
     },
     plotOptions: {
-      line: { marker: { enabled: !!hashParams.markers } },
-      series: { animation: false, stacking: 'normal' }
+      line: { animation: false, marker: { enabled: !!hashParams.markers } },
+      series: { animation: false, stacking: 'normal' },
     },
     series: series
   });
@@ -501,8 +501,8 @@ function renderChart(destination, originalTorque, originalPower /*= null*/){
   var timeout = null;
 
   function update(newTorque, newPower /*= null*/){
-    if (timeout !== null) clearTimeout(timeout);
-    timeout = setTimeout(() => {
+    // if (timeout !== null) clearTimeout(timeout);
+    // timeout = setTimeout(() => {
       if (settings.optimize()){
         if (areCurvesSame(originalTorque, newTorque) && localLang == langChanged) return;
         originalTorque = newTorque;
@@ -521,27 +521,29 @@ function renderChart(destination, originalTorque, originalPower /*= null*/){
       } else {
         if (settings.sameY()){
           var max = findSummaryMaxValue(data);
-          chart.yAxis[0].update({ max: max });
-          chart.yAxis[1].update({ max: max });
+          chart.yAxis[0].update({ max: max }, false);
+          chart.yAxis[1].update({ max: max }, false);
         } else {
           if (chart.yAxis[0].max != null){
-            chart.yAxis[0].update({ max: null });
-            chart.yAxis[1].update({ max: null });
+            chart.yAxis[0].update({ max: null }, false);
+            chart.yAxis[1].update({ max: null }, false);
           }
         }
 
         var index = 0;
-        if (data.ers) chart.series[index++].setData(data.ers.torque);
-        if (data.turbo) chart.series[index++].setData(data.turbo.torque);  
-        chart.series[index++].setData(data.base.torque);
+        if (data.ers) chart.series[index++].setData(data.ers.torque, false, false);
+        if (data.turbo) chart.series[index++].setData(data.turbo.torque, false, false);  
+        chart.series[index++].setData(data.base.torque, false, false);
 
-        if (data.ers) chart.series[index++].setData(data.ers.power);
-        if (data.turbo) chart.series[index++].setData(data.turbo.power);  
-        chart.series[index++].setData(data.base.power);
+        if (data.ers) chart.series[index++].setData(data.ers.power, false, false);
+        if (data.turbo) chart.series[index++].setData(data.turbo.power, false, false);  
+        chart.series[index++].setData(data.base.power, false, false);
+
+        chart.redraw(false);
       }
 
       timeout = null;
-    }, 200);
+    // }, 20);
   }
 
   function updateRequired(){
@@ -576,32 +578,12 @@ function exportChart(torque, power, width, height, callback){
 
     var chart = createChart(node, data);
 
-    var imgSrc = 'data:image/svg+xml;utf8,' + node.querySelector('svg').outerHTML;
-    var canvas = document.createElement('canvas'),
-        context = canvas.getContext('2d');
-
-    document.body.appendChild(canvas);
-    canvas.setAttribute('width', width);
-    canvas.setAttribute('height', height);
-
-    var image = new Image;
-    image.src = imgSrc;
-    image.onload = function () {
-      context.drawImage(image, 0, 0);
-      Promise.all([
-        new Promise((r, j) => {
-          require([ 'lib/fileSaver' ], require => r(require('lib/fileSaver')));
-        }),
-        new Promise((r, j) => {
-          canvas.toBlob(r, 'image/png');
-        })
-      ]).then(all => {
-        var fileSaver = all[0];
-        var blob = all[1];
-        fileSaver(blob, `actorquehelper_${Date.now()}.png`);
-        callback && callback();
-      });
-    };
+    require([ 'lib/saveSvg' ], require => {
+      require('lib/saveSvg')
+          .saveSvgAsPng(node.querySelector('svg'), `actorquehelper_${Date.now()}.png`, {}, callback);
+    });
+  } catch (e) {
+    console.warn(e);
   } finally {
     try {
       document.body.removeChild(canvas);

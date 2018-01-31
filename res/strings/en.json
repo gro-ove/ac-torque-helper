@@ -28,6 +28,7 @@
   "copiedToClipboard": "Copied to clipboard",
   "savedAsZipArchive": "Packed and saved",
   "imageExported": "Saved as image",
+  "imageExportFailed": "Can’t save image in this browser",
   "cannotRecognizeType": "Can’t recognize type of file",
 
   "seriesErs": "KERS",

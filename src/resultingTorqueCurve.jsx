@@ -5,7 +5,7 @@ var settings = require('src/settings');
 
 function getLimit(powerLutParsed, engineIniParsed){
   var limit = settings.engineIniRpmLimit() && engineIniParsed['ENGINE_DATA'] ? +engineIniParsed['ENGINE_DATA']['LIMITER'] : Number.NaN;
-  return !limit || Number.isNaN(limit) ? null : limit;
+  return !limit || isNaN(limit) ? null : limit;
 }
 
 function getTurbosList(engineIniParsed, ctrlTurboInis){
